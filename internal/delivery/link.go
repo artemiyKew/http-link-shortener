@@ -35,7 +35,7 @@ func (r *linkRoutes) CreateShortLink(c *fiber.Ctx) error {
 		return err
 	}
 
-	linkOutput, err := r.Link.CreateShortLink(c.Context(), service.LinkInput{
+	linkOutput, err := r.Link.CreateShortLink(c.UserContext(), service.LinkInput{
 		Link: input.Link,
 	})
 
@@ -48,7 +48,7 @@ func (r *linkRoutes) CreateShortLink(c *fiber.Ctx) error {
 }
 
 func (r *linkRoutes) GetShortLink(c *fiber.Ctx) error {
-	fullURL, err := r.Link.GetShortLink(c.Context(), c.Params("token"))
+	fullURL, err := r.Link.GetShortLink(c.UserContext(), c.Params("token"))
 	logrus.Info(fullURL)
 	if err != nil {
 		newError(c, http.StatusBadRequest, err)
@@ -56,11 +56,5 @@ func (r *linkRoutes) GetShortLink(c *fiber.Ctx) error {
 	}
 
 	c.Response().Header.Set("Location", fullURL)
-	err = c.Redirect(fullURL)
-	if err != nil {
-		newError(c, http.StatusInternalServerError, err)
-		return err
-	}
-
-	return respond(c, fiber.StatusOK, fullURL)
+	return c.Redirect(fullURL)
 }

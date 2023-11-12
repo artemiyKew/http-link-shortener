@@ -2,8 +2,11 @@ package service
 
 import (
 	"context"
-	"math/big"
+	"crypto/sha256"
+	"encoding/hex"
+	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/artemiyKew/http-link-shortener/internal/entity"
@@ -21,17 +24,10 @@ func NewLinkService(linkRepo repo.Link) *LinkService {
 }
 
 func (s *LinkService) CreateShortLink(ctx context.Context, link LinkInput) (*LinkOutput, error) {
-	// if err := isValidUrl(link.Link); err != nil {
-	// 	return &LinkOutput{}, err
-	// }
-
-	token, err := generateShortLink(link.Link, 10)
-	if err != nil {
-		return &LinkOutput{}, err
-	}
+	token := generateShortLink(link.Link, 10)
 
 	linkOutput, err := s.linkRepo.CreateShortLink(ctx, entity.Link{
-		FullURL:      link.Link,
+		FullURL:      validateAndFixURL(link.Link),
 		CreatedAt:    time.Now(),
 		ExpiredAt:    time.Now().Add(24 * time.Hour),
 		VisitCounter: 0,
@@ -39,6 +35,10 @@ func (s *LinkService) CreateShortLink(ctx context.Context, link LinkInput) (*Lin
 	})
 
 	if err != nil {
+		return &LinkOutput{}, err
+	}
+
+	if err := isValidUrl(linkOutput.FullURL); err != nil {
 		return &LinkOutput{}, err
 	}
 
@@ -60,38 +60,31 @@ func (s *LinkService) GetShortLink(ctx context.Context, shortLink string) (strin
 	return fullURL, nil
 }
 
-// func isValidUrl(input string) error {
-// 	_, err := url.ParseRequestURI(input)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	return nil
-// }
-
-func generateShortLink(inputURL string, tokenLength int) (string, error) {
-	const allowedChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
-	base := big.NewInt(int64(len(allowedChars)))
-
-	// Преобразование полной ссылки в число
-	inputURLBytes := []byte(inputURL)
-	number := big.NewInt(0)
-	for i := 0; i < len(inputURLBytes); i++ {
-		char := inputURLBytes[i]
-		index := strings.IndexByte(allowedChars, char)
-		if index == -1 {
-			continue
-		}
-		number.Mul(number, base)
-		number.Add(number, big.NewInt(int64(index)))
+func isValidUrl(input string) error {
+	_, err := url.ParseRequestURI(input)
+	if err != nil {
+		return err
 	}
+	return nil
+}
 
-	// Преобразование числа в систему счисления с основанием 62
-	shortLinkChars := make([]byte, 0, len(inputURL))
-	for i := 0; i < tokenLength; i++ {
-		remainder := new(big.Int)
-		number, remainder = number.DivMod(number, base, remainder)
-		shortLinkChars = append(shortLinkChars, allowedChars[remainder.Int64()])
+func generateShortLink(inputURL string, tokenLength int) string {
+	var tokenMutex sync.Mutex
+	tokenMutex.Lock()
+	defer tokenMutex.Unlock()
+
+	hash := sha256.Sum256([]byte(inputURL))
+
+	shortenedURL := hex.EncodeToString(hash[:5])
+
+	return shortenedURL
+
+}
+
+func validateAndFixURL(url string) string {
+	if !strings.HasPrefix(url, "https://") && !strings.HasPrefix(url, "http://") {
+		// Если префикс "https://" или "http://" отсутствует, добавляем "https://"
+		url = "https://" + url
 	}
-
-	return string(shortLinkChars), nil
+	return url
 }

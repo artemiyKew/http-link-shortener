@@ -2,6 +2,9 @@ package app
 
 import (
 	"context"
+	"os"
+	"os/signal"
+	"time"
 
 	"github.com/artemiyKew/http-link-shortener/config"
 	"github.com/artemiyKew/http-link-shortener/internal/delivery"
@@ -13,7 +16,10 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-func Run(ctx context.Context, configPath string) error {
+func Run(configPath string) error {
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+
 	// Init config
 	cfg, err := config.NewConfig(configPath)
 	if err != nil {
@@ -54,5 +60,23 @@ func Run(ctx context.Context, configPath string) error {
 	logrus.Info("Starting http server...")
 	logrus.Infof("Server port: %s", cfg.BindAddr)
 
-	return fasthttp.ListenAndServe(cfg.BindAddr, handler.Handler())
+	ch := make(chan error, 1)
+
+	go func() {
+		err = fasthttp.ListenAndServe(cfg.BindAddr, handler.Handler())
+		if err != nil {
+			ch <- err
+		}
+		close(ch)
+	}()
+
+	select {
+	case <-ctx.Done():
+		timeout, cancel := context.WithTimeout(ctx, time.Second*10)
+		defer cancel()
+
+		return handler.ShutdownWithContext(timeout)
+	case err := <-ch:
+		return err
+	}
 }
