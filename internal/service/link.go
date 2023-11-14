@@ -4,7 +4,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"net/url"
+	"errors"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -14,45 +15,69 @@ import (
 )
 
 type LinkService struct {
-	linkRepo repo.Link
+	linkRepoRDB  repo.LinkRDB
+	linkRepoPGDB repo.LinkPGDB
 }
 
-func NewLinkService(linkRepo repo.Link) *LinkService {
+func NewLinkService(linkRepoRDB repo.LinkRDB, linkRepoPGDB repo.LinkPGDB) *LinkService {
 	return &LinkService{
-		linkRepo: linkRepo,
+		linkRepoRDB:  linkRepoRDB,
+		linkRepoPGDB: linkRepoPGDB,
 	}
 }
 
 func (s *LinkService) CreateShortLink(ctx context.Context, link LinkInput) (*LinkOutput, error) {
-	token := generateShortLink(link.Link, 10)
-
-	linkOutput, err := s.linkRepo.CreateShortLink(ctx, entity.Link{
-		FullURL:      validateAndFixURL(link.Link),
-		CreatedAt:    time.Now(),
-		ExpiredAt:    time.Now().Add(24 * time.Hour),
-		VisitCounter: 0,
-		Token:        token,
-	})
+	l, err := s.linkRepoPGDB.CheckShortLinkExist(ctx, ValidateAndFixURL(link.Link))
 
 	if err != nil {
-		return &LinkOutput{}, err
-	}
+		token := generateShortLink(link.Link, 10)
 
-	if err := isValidUrl(linkOutput.FullURL); err != nil {
-		return &LinkOutput{}, err
-	}
+		entity := entity.Link{
+			FullURL:      ValidateAndFixURL(link.Link),
+			CreatedAt:    time.Now(),
+			ExpiredAt:    time.Now().Add(24 * time.Hour),
+			VisitCounter: 0,
+			Token:        token,
+		}
 
-	return &LinkOutput{
-		FullURL:      linkOutput.FullURL,
-		CreatedAt:    linkOutput.CreatedAt,
-		ExpiredAt:    linkOutput.ExpiredAt,
-		VisitCounter: linkOutput.VisitCounter,
-		Token:        linkOutput.Token,
-	}, nil
+		if err := IsValidUrl(entity.FullURL); err != nil {
+			return &LinkOutput{}, err
+		}
+
+		linkOutput, err := s.linkRepoRDB.CreateShortLink(ctx, entity)
+		if err != nil {
+			return &LinkOutput{}, err
+		}
+
+		if err := s.linkRepoPGDB.CreateShortLink(ctx, entity); err != nil {
+			return &LinkOutput{}, err
+		}
+
+		return &LinkOutput{
+			FullURL:      linkOutput.FullURL,
+			CreatedAt:    linkOutput.CreatedAt,
+			ExpiredAt:    linkOutput.ExpiredAt,
+			VisitCounter: linkOutput.VisitCounter,
+			Token:        linkOutput.Token,
+		}, nil
+
+	} else {
+		return &LinkOutput{
+			FullURL:      l.FullURL,
+			CreatedAt:    l.CreatedAt,
+			ExpiredAt:    l.ExpiredAt,
+			VisitCounter: l.VisitCounter,
+			Token:        l.Token,
+		}, nil
+	}
 }
 
-func (s *LinkService) GetShortLink(ctx context.Context, shortLink string) (string, error) {
-	fullURL, err := s.linkRepo.GetShortLink(ctx, shortLink)
+func (s *LinkService) GetShortLink(ctx context.Context, token string) (string, error) {
+	if err := s.linkRepoPGDB.UpdateCountOfVisits(ctx, token); err != nil {
+		return "", err
+	}
+
+	fullURL, err := s.linkRepoRDB.GetShortLink(ctx, token)
 	if err != nil {
 		return "", err
 	}
@@ -60,12 +85,18 @@ func (s *LinkService) GetShortLink(ctx context.Context, shortLink string) (strin
 	return fullURL, nil
 }
 
-func isValidUrl(input string) error {
-	_, err := url.ParseRequestURI(input)
+func IsValidUrl(input string) error {
+	response, err := http.Get(input)
 	if err != nil {
 		return err
 	}
-	return nil
+	defer response.Body.Close()
+
+	if response.StatusCode == http.StatusOK {
+		return nil
+	} else {
+		return errors.New("fail to connect")
+	}
 }
 
 func generateShortLink(inputURL string, tokenLength int) string {
@@ -81,9 +112,8 @@ func generateShortLink(inputURL string, tokenLength int) string {
 
 }
 
-func validateAndFixURL(url string) string {
+func ValidateAndFixURL(url string) string {
 	if !strings.HasPrefix(url, "https://") && !strings.HasPrefix(url, "http://") {
-		// Если префикс "https://" или "http://" отсутствует, добавляем "https://"
 		url = "https://" + url
 	}
 	return url

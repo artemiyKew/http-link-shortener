@@ -34,6 +34,6 @@ type ServicesDependencies struct {
 
 func NewServices(deps ServicesDependencies) *Services {
 	return &Services{
-		Link: NewLinkService(deps.Repos.Link),
+		Link: NewLinkService(deps.Repos.LinkRDB, deps.Repos.LinkPGDB),
 	}
 }
