@@ -8,6 +8,10 @@ type RedisDB struct {
 
 func NewRDB() *RedisDB {
 	return &RedisDB{
-		RDB: redis.NewClient(&redis.Options{}),
+		RDB: redis.NewClient(&redis.Options{
+			Addr:     "redis:6379",
+			Password: "",
+			DB:       0,
+		}),
 	}
 }

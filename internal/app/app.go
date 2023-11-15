@@ -9,6 +9,7 @@ import (
 	"github.com/artemiyKew/http-link-shortener/config"
 	"github.com/artemiyKew/http-link-shortener/internal/delivery"
 	"github.com/artemiyKew/http-link-shortener/internal/repo"
+	"github.com/artemiyKew/http-link-shortener/internal/repo/pgdb"
 	"github.com/artemiyKew/http-link-shortener/internal/repo/redisdb"
 	"github.com/artemiyKew/http-link-shortener/internal/service"
 	"github.com/gofiber/fiber/v2"
@@ -32,6 +33,15 @@ func Run(configPath string) error {
 		return err
 	}
 
+	// Postgres
+	logrus.Info("Initializing postgres...")
+	db, err := pgdb.NewDB(cfg.DataBaseURL)
+	if err != nil {
+		return err
+	}
+	pg := pgdb.New(db)
+	defer pg.DB.Close()
+
 	// Redis
 	logrus.Info("Initializing redis...")
 	rdb := redisdb.NewRDB()
@@ -42,7 +52,7 @@ func Run(configPath string) error {
 
 	// Repositories
 	logrus.Info("Initializing repositories...")
-	repositories := repo.NewRepositories(rdb)
+	repositories := repo.NewRepositories(rdb, pg)
 
 	// Services dependencies
 	logrus.Info("Initializing services...")

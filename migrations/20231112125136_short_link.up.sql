@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS links (
+    id SERIAL PRIMARY KEY,
+    full_url TEXT NOT NULL UNIQUE,
+    create_at TIMESTAMPTZ NOT NULL,
+    expired_at TIMESTAMPTZ NOT NULL,
+    visit_counter INT DEFAULT 0,
+    token TEXT NOT NULL UNIQUE
+);
