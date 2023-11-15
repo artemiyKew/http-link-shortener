@@ -1,2 +1,2 @@
 bind_addr: ":1234"
-db_url: "host=localhost port=5432 user=artemiy dbname=link_shortener sslmode=disable"
+db_url: "host=postgres user=postgres password=password dbname=link_shortener sslmode=disable"

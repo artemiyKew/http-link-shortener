@@ -15,6 +15,10 @@ func NewLinkRepo(pgdb *PostgresDB) *LinkRepo {
 }
 
 func (r *LinkRepo) CreateShortLink(ctx context.Context, link entity.Link) error {
+	_, err := r.DB.Exec("DELETE FROM links WHERE expired_at < NOW()")
+	if err != nil {
+		return nil
+	}
 	var id int
 	return r.DB.
 		QueryRow("INSERT INTO links (full_url, create_at, expired_at, visit_counter, token) VALUES ($1, $2, $3, $4, $5) RETURNING id",
@@ -24,6 +28,10 @@ func (r *LinkRepo) CreateShortLink(ctx context.Context, link entity.Link) error 
 }
 
 func (r *LinkRepo) UpdateCountOfVisits(ctx context.Context, token string) error {
+	_, err := r.DB.Exec("DELETE FROM links WHERE expired_at < NOW()")
+	if err != nil {
+		return nil
+	}
 	tx, err := r.DB.Begin()
 	if err != nil {
 		return err

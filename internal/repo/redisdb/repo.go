@@ -25,22 +25,6 @@ func (r *LinkRepo) CreateShortLink(ctx context.Context, link entity.Link) (*enti
 	return &link, nil
 }
 
-// func (r *LinkRepo) CheckShortLinkExist(ctx context.Context, key string) (*entity.Link, error) {
-// 	link := &entity.Link{}
-
-// 	linkJSON, err := r.RDB.Get(ctx, key).Result()
-// 	if err != nil {
-// 		return &entity.Link{}, err
-// 	}
-
-// 	err = json.Unmarshal([]byte(linkJSON), &link)
-// 	if err != nil {
-// 		return &entity.Link{}, err
-// 	}
-
-// 	return link, nil
-// }
-
 func (r *LinkRepo) GetShortLink(ctx context.Context, token string) (string, error) {
 	key := token
 	fullURL, err := r.RDB.Get(ctx, key).Result()
