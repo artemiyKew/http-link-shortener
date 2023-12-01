@@ -22,6 +22,7 @@ type LinkOutput struct {
 type Link interface {
 	CreateShortLink(context.Context, LinkInput) (*LinkOutput, error)
 	GetShortLink(context.Context, string) (string, error)
+	GetLinkInfo(context.Context, LinkInput) (*LinkOutput, error)
 }
 
 type Services struct {

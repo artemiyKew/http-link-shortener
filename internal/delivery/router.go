@@ -10,8 +10,5 @@ func NewRouter(handler *fiber.App, services *service.Services) {
 	handler.Use(logRequest)
 
 	handler.Get("/health", func(c *fiber.Ctx) error { return c.SendString("200") })
-	v1 := handler.Group("/api/v1")
-	{
-		newLinkRoutes(v1.Group("/shortener"), services.Link)
-	}
+	newLinkRoutes(handler, services.Link)
 }

@@ -4,8 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
-	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -40,7 +39,8 @@ func (s *LinkService) CreateShortLink(ctx context.Context, link LinkInput) (*Lin
 			Token:        token,
 		}
 
-		if err := IsValidUrl(entity.FullURL); err != nil {
+		_, err := url.ParseRequestURI(entity.FullURL)
+		if err != nil {
 			return &LinkOutput{}, err
 		}
 
@@ -72,6 +72,20 @@ func (s *LinkService) CreateShortLink(ctx context.Context, link LinkInput) (*Lin
 	}
 }
 
+func (s *LinkService) GetLinkInfo(ctx context.Context, link LinkInput) (*LinkOutput, error) {
+	linkInfo, err := s.linkRepoPGDB.GetLinkInfo(ctx, link.Link)
+	if err != nil {
+		return &LinkOutput{}, err
+	}
+	return &LinkOutput{
+		FullURL:      linkInfo.FullURL,
+		Token:        linkInfo.Token,
+		CreatedAt:    linkInfo.CreatedAt,
+		ExpiredAt:    linkInfo.ExpiredAt,
+		VisitCounter: linkInfo.VisitCounter,
+	}, nil
+}
+
 func (s *LinkService) GetShortLink(ctx context.Context, token string) (string, error) {
 	if err := s.linkRepoPGDB.UpdateCountOfVisits(ctx, token); err != nil {
 		return "", err
@@ -85,20 +99,6 @@ func (s *LinkService) GetShortLink(ctx context.Context, token string) (string, e
 	return fullURL, nil
 }
 
-func IsValidUrl(input string) error {
-	response, err := http.Get(input)
-	if err != nil {
-		return err
-	}
-	defer response.Body.Close()
-
-	if response.StatusCode == http.StatusOK {
-		return nil
-	} else {
-		return errors.New("fail to connect")
-	}
-}
-
 func generateShortLink(inputURL string, tokenLength int) string {
 	var tokenMutex sync.Mutex
 	tokenMutex.Lock()
@@ -109,7 +109,6 @@ func generateShortLink(inputURL string, tokenLength int) string {
 	shortenedURL := hex.EncodeToString(hash[:5])
 
 	return shortenedURL
-
 }
 
 func ValidateAndFixURL(url string) string {
