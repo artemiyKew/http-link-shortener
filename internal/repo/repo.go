@@ -18,6 +18,7 @@ type LinkPGDB interface {
 	UpdateCountOfVisits(context.Context, string) error
 	GetShortLink(context.Context, string) (string, error)
 	CheckShortLinkExist(context.Context, string) (entity.Link, error)
+	GetLinkInfo(context.Context, string) (entity.Link, error)
 }
 
 type Repositories struct {

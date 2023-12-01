@@ -18,7 +18,7 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - cache:/data
+      - redis-cache:/data
     restart: unless-stopped
 
   app:
@@ -35,6 +35,6 @@ services:
 
 volumes:
   pg-data:
-  cache:
+  redis-cache:
 
     

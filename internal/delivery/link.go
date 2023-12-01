@@ -18,6 +18,7 @@ func newLinkRoutes(g fiber.Router, linkService service.Link) *linkRoutes {
 	}
 
 	g.Post("/", r.CreateShortLink)
+	g.Get("/", r.GetLinkInfo)
 	g.Get("/:token", r.GetShortLink)
 
 	return r
@@ -40,11 +41,35 @@ func (r *linkRoutes) CreateShortLink(c *fiber.Ctx) error {
 	})
 
 	if err != nil {
+		//TODO создать ошибку что ссылка уже создана и вернуть статус 200
 		newError(c, http.StatusInternalServerError, err)
 		return err
 	}
 
-	return respond(c, fiber.StatusOK, linkOutput)
+	return respond(c, fiber.StatusCreated, linkOutput)
+}
+
+type getLinkInfoInput struct {
+	Token string `json:"token"`
+}
+
+func (r *linkRoutes) GetLinkInfo(c *fiber.Ctx) error {
+	var input getLinkInfoInput
+
+	if err := c.BodyParser(&input); err != nil {
+		newError(c, http.StatusBadRequest, err)
+		return err
+	}
+
+	linkOutput, err := r.Link.GetLinkInfo(c.UserContext(), service.LinkInput{
+		Link: input.Token,
+	})
+
+	if err != nil {
+		newError(c, http.StatusInternalServerError, err)
+		return err
+	}
+	return respond(c, fiber.StatusCreated, linkOutput)
 }
 
 func (r *linkRoutes) GetShortLink(c *fiber.Ctx) error {
