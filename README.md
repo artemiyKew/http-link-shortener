@@ -16,17 +16,17 @@
 
 **Скопируйте проект**
 ```bash
-  git clone https://github.com/artemiyKew/http-link-shortener.git
+git clone https://github.com/artemiyKew/http-link-shortener.git
 ```
 
 **Перейдите в каталог проекта**
 ```bash
-  cd http-link-shortener
+cd http-link-shortener
 ```
 
 **Запустите сервер**
 ```bash
-  make compose
+make compose
 ```
 
 ## Examples
@@ -66,7 +66,7 @@ curl http://localhost:1234/1395ec37e4
 Получение данных о сокращенной ссылке:
 
 ```bash
- curl -X GET \
+curl -X GET \
     http://localhost:1234/ \
     -H "Content-Type: application/json" \
     -d '{
